@@ -3,7 +3,8 @@ const express = require("express");
 const mongoose = require ("mongoose");
 const bodyParser = require("body-parser");
 const ejs = require("ejs");
-const md5 = require("md5");
+const bcrypt = require('bcrypt');
+const saltRounds = 10;
 const app = express();
 
 app.set('view engine', 'ejs');
@@ -26,7 +27,6 @@ app.get("/login",(req,res)=>{
 });
 app.post("/login",(req,res)=>{
   const uname = req.body.username
-  const pswd=md5(req.body.password)
   User.findOne({email:uname}).then((docs)=>{
     if(!docs)
     {
@@ -34,13 +34,15 @@ app.post("/login",(req,res)=>{
     }
     else
     {
-      if (pswd===docs.password) {
-        console.log("Login success");
-        res.render("secrets");
-      }
-      else{
-        res.send("Login failed")
-      }
+      bcrypt.compare(req.body.password, docs.password, function(err, result) {
+        if (result===true) {
+          console.log("Login success");
+          res.render("secrets");
+        }
+        else{
+          res.send("Login failed")
+        }
+    });
     }
   })
 });
@@ -48,17 +50,21 @@ app.get("/register",(req,res)=>{
     res.render("register");
 });
 app.post("/register",(req,res)=>{
-  const register = new User({
-    email:req.body.username,
-    password:md5(req.body.password)
-  });
-  register.save().then((docs)=>{
-    if (!docs) {
-        res.send("error saving docs");
-    }
-    else{
-        res.render("secrets");
-    }
+  bcrypt.genSalt(saltRounds, function(err, salt) {
+    bcrypt.hash(req.body.password, salt, function(err, hash) {
+      const register = new User({
+        email:req.body.username,
+        password:hash
+      });
+      register.save().then((docs)=>{
+        if (!docs) {
+            res.send("error saving docs");
+        }
+        else{
+            res.render("secrets");
+        }
+    });
+});
 });
 });
 app.get("/secrets",(req,res)=>{
